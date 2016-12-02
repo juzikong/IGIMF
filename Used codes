@@ -1,0 +1,148 @@
+# Three function below together return the Constant_ECMF for every M_ecl_max, or in fact, every SFR
+# Call:  Function_get_constant_ECMF(Constant_ECMF_initial,$meclmax$,Constant_M_phy_max,10**3,0.0001)
+def Function_get_constant_ECMF(constant_ECMF, mphymin, meclmax,mphymax,step,precision_of_optimally_sampled):
+    integrate = Function_integrate_Mphymin_to_Meclmax(constant_ECMF,mphymin, meclmax)
+    if (integrate-1) < precision_of_optimally_sampled and (integrate - 1) > (0 - precision_of_optimally_sampled):
+        return constant_ECMF
+    elif integrate > 1:
+        return Function_get_constant_ECMF1(constant_ECMF,mphymin, meclmax,mphymax,step,precision_of_optimally_sampled)
+    else:
+        return Function_get_constant_ECMF2(constant_ECMF,mphymin, meclmax,mphymax,step,precision_of_optimally_sampled)
+
+def Function_get_constant_ECMF1(constant_ECMF, mphymin, meclmax,mphymax,step,precision_of_optimally_sampled):
+    integrate = Function_integrate_Mphymin_to_Meclmax(constant_ECMF,mphymin,meclmax)
+    if (integrate-1) < precision_of_optimally_sampled and (integrate - 1) > (0 - precision_of_optimally_sampled):
+        return constant_ECMF
+    elif integrate > 1:
+        return Function_get_constant_ECMF1((constant_ECMF-step),mphymin, meclmax,mphymax,step,precision_of_optimally_sampled)
+    else:
+        return Function_get_constant_ECMF((constant_ECMF+step), mphymin, meclmax,mphymax,(0.1*step),precision_of_optimally_sampled)
+
+def Function_get_constant_ECMF2(constant_ECMF,mphymin,meclmax,mphymax,step,precision_of_optimally_sampled):
+    integrate = Function_integrate_Mphymin_to_Meclmax(constant_ECMF, mphymin, meclmax)
+    if (integrate-1) < precision_of_optimally_sampled and (integrate - 1) > (0 - precision_of_optimally_sampled):
+        return constant_ECMF
+    elif integrate < 1:
+        return Function_get_constant_ECMF2((constant_ECMF+step),mphymin, meclmax,mphymax,(100*step),precision_of_optimally_sampled)
+    else:
+        return Function_get_constant_ECMF(constant_ECMF,mphymin, meclmax,mphymax,(0.1*step),precision_of_optimally_sampled)
+
+
+import random
+import sys
+import sys,math
+import os
+from math import exp
+
+
+###################################
+########### Constants #############
+###################################
+
+Constant_ECMF = 0
+Constant_M_phy_max = 10**8
+Constant_M_phy_min = 5
+
+
+###################################
+########### Functions #############
+###################################
+
+# The star burst model function define SFR (solar mass / year) at n's time step, each step = 10 Myr
+def Function_SFR(time_step):
+    time_step /= 30
+    return 44445*exp(-2*time_step)*time_step**4
+
+# Embedded Cluster Mass Function.
+# To calculate Constant_ECMF, integrate Function_ECMF from M_ecl_max to physical maximum star cluster
+# which is larger than 10^8 solar mass.
+# According to M_ecl,max SFR relation the M_ecl_max will always smaller than M_phy_max.
+def Function_ECMF(constant_ECMF,mecl):
+    return constant_ECMF * mecl ** (-2.35)
+
+# M_ecl,max SFR relation:
+# (Weidner, Kroupa & Larsen 2004)
+# http://adsabs.harvard.edu/abs/2004MNRAS.350.1503W
+def Function_M_ecl_max(sfr):
+    return 10**4.93*sfr**0.764
+
+
+
+# Calculate the integrated possibility from cluster mass M_ecl_min to M_ecl_max
+def Function_integrate_mass_Mphymin_to_Meclmax(constant_ECMF, mphymin, meclmax):
+    integrate = 0
+    mass = mphymin
+    while mass < meclmax:
+        integrate += Function_ECMF(constant_ECMF,mass) * mass * (meclmax-mphymin)/10**3
+        # Here mphymin is the physical minimum star cluster mass = 5 solar mass
+        # and (meclmax-mphymin)/10**3 is the grid of integration = 1000
+        mass += (meclmax-mphymin)/10**3
+    return integrate
+
+
+# Calculate the integrated possibility from cluster mass M_ecl_max to physical max cluster mass
+# Use initial constant_ECMF = 1 in this function,
+# then actual constant_ECMF = total Mass / this integration
+def Function_integrate_Xi_Meclmax_to_Mu(constant_ECMF,meclmax,mphymax):
+    integrate = 0
+    mass = meclmax
+    while mass < mphymax:
+        integrate += Function_ECMF(constant_ECMF,mass) * mass * (mphymax-meclmax)/10**5
+        # Here mphymax is the physical maximum star cluster mass ~ 10**8
+        # and (mphymax-meclmax)/10**3 is the grid of integration = 1000
+        mass += (mphymax-meclmax)/10**5
+    return integrate
+
+# Return the Constant_ECMF for time-step n with given SFR function
+def Function_get_constant_ECMF(n):
+    meclmax = Function_M_ecl_max(Function_SFR(n))
+    if meclmax > Constant_M_phy_min:
+        return (Function_SFR(n)*10**7 /
+               Function_integrate_mass_Mphymin_to_Meclmax(1, Constant_M_phy_min, meclmax))
+    else:
+        return "SFR too low. No star cluster formation!"
+
+# Give the total mass generated of stars in time step n and with mass between m and m + dm
+#def Function_IGIMF_mass(m,n,dm):
+
+
+asd=Function_get_constant_ECMF(80)
+#qwe=Function_M_ecl_max(Function_SFR(100))
+qwe=Function_integrate_Xi_Meclmax_to_Mu(asd,Function_M_ecl_max(Function_SFR(80)),10**9)
+print(qwe)
+
+
+
+
+
+
+
+
+
+
+###################################
+############# Lists ###############
+###################################
+
+
+# The list record SFR value at each time step
+List_SFR = []
+# The list record Star Formation Mass at each time step
+List_SFM = []
+# The list of Star Cluster Lists formed in each time step. (Following Embedded Cluster Mass Function)
+List_SCL = []
+
+
+
+###################################
+############# Loops ###############
+###################################
+
+# Calculate SFR and write it into the SFR List. Time step = 10 Myr (Count/30)
+Count=0
+while Count < 300 :
+    List_SFR = List_SFR + [Function_SFR(Count)]
+    List_SFM = List_SFM + [List_SFR[Count]*10**7]
+    #print(List_SFM[Count])
+    Count = Count + 1
+
